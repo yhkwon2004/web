@@ -1,29 +1,54 @@
 {
-  "owner": {
+  "schemaVersion": "2.0.0",
+  "profile": {
     "name": "김개발",
-    "career": "Frontend Developer · 5년차"
+    "title": "Creative Frontend Engineer",
+    "experienceYears": 5,
+    "summary": "사용자가 공간 안에서 내 이력을 탐험하도록 만드는 인터랙티브 웹을 만듭니다.",
+    "location": "Seoul",
+    "email": "devkim@example.com",
+    "links": [
+      { "label": "GitHub", "url": "https://github.com/example" },
+      { "label": "Blog", "url": "https://example.dev" }
+    ],
+    "skills": ["Three.js", "TypeScript", "React", "WebGL", "Motion UX"]
   },
   "records": [
     {
-      "id": "r1",
+      "id": "project-showcase-2025",
       "title": "3D 제품 쇼케이스 구축",
-      "summary": "Three.js 기반 제품 전시 페이지를 개발하여 전환율 21% 개선",
+      "summary": "웹 기반 3D 전시 경험을 구축해 탐색형 구매 플로우를 구현했습니다.",
       "category": "프로젝트",
-      "date": "2025-11-12"
+      "date": "2025-11-12",
+      "impact": "전환율 +21%",
+      "tags": ["Three.js", "UX", "Commerce"]
     },
     {
-      "id": "r2",
+      "id": "system-renew-2024",
       "title": "디자인 시스템 리뉴얼",
-      "summary": "컴포넌트 표준화 및 접근성 강화로 유지보수 비용 절감",
+      "summary": "컴포넌트 표준화와 접근성 규칙 수립으로 배포 속도를 개선했습니다.",
       "category": "경험",
-      "date": "2024-07-01"
+      "date": "2024-07-01",
+      "impact": "릴리즈 리드타임 -34%",
+      "tags": ["Design System", "A11y", "Frontend Platform"]
     },
     {
-      "id": "r3",
+      "id": "exhibition-app-2023",
       "title": "인터랙티브 전시 웹앱",
-      "summary": "드래그 탐색 중심 UX로 평균 체류시간 2배 증가",
+      "summary": "드래그 탐험 중심 인터랙션으로 몰입형 전시 경험을 만들었습니다.",
       "category": "프로젝트",
-      "date": "2023-03-20"
+      "date": "2023-03-20",
+      "impact": "평균 체류시간 2배",
+      "tags": ["WebGL", "Storytelling"]
+    },
+    {
+      "id": "mentor-program-2022",
+      "title": "사내 프론트엔드 멘토링 운영",
+      "summary": "주니어 온보딩 커리큘럼과 코드리뷰 템플릿을 체계화했습니다.",
+      "category": "활동",
+      "date": "2022-09-15",
+      "impact": "온보딩 기간 -40%",
+      "tags": ["Mentoring", "Culture"]
     }
   ]
 }

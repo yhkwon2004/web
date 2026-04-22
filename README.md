@@ -1,31 +1,54 @@
-# 3D Library Portfolio
+# 3D Library Portfolio (Web)
 
-도서관 콘셉트의 3D 포트폴리오입니다.
+도서관 공간을 탐험하며 이력을 보는 3D 포트폴리오 웹입니다.
 
-## 핵심 기능
-- 인트로 화면: 이름/경력 표시 후 문을 열고 입장
-- 3D 도서관: 책장/책 오브젝트로 기록 시각화
-- 드래그 전용 이동: 마우스/터치 드래그로 시점 이동
-- 정렬: 시간순/이름순
-- 역할 분리: 이용자(조회) / 사서(추가·수정·삭제)
+## 개선 포인트
+- **3D 연출 강화**
+  - 도서관 방 구조(바닥/벽/아치)
+  - 다중 책장 레이아웃
+  - 파티클 분위기 연출
+  - 책 클릭 시 해당 카드 강조
+- **데이터 구조 강화**
+  - `schemaVersion`
+  - `profile`(소개/연락처/링크/스킬)
+  - `records`(id/title/summary/category/date/impact/tags)
+- **확장 가능한 관리 구조**
+  - 사서 모드에서 추가/수정/삭제
+  - 변경사항 `localStorage` 저장
+  - 정렬 + 카테고리 필터
 
-## 데이터 확장 구조
-`data/portfolio.json`의 `owner`, `records`를 수정하면 내용이 반영됩니다.
+## 데이터 포맷
+`data/portfolio.json`:
 
 ```json
 {
-  "owner": { "name": "홍길동", "career": "Frontend Developer · 7년차" },
+  "schemaVersion": "2.0.0",
+  "profile": {
+    "name": "김개발",
+    "title": "Creative Frontend Engineer",
+    "experienceYears": 5,
+    "summary": "...",
+    "location": "Seoul",
+    "email": "devkim@example.com",
+    "links": [{ "label": "GitHub", "url": "https://github.com/example" }],
+    "skills": ["Three.js", "TypeScript"]
+  },
   "records": [
     {
-      "id": "unique-id",
+      "id": "project-2025",
       "title": "프로젝트명",
       "summary": "설명",
       "category": "프로젝트",
-      "date": "2026-01-01"
+      "date": "2025-11-12",
+      "impact": "전환율 +21%",
+      "tags": ["WebGL", "UX"]
     }
   ]
 }
 ```
 
 ## 실행
-정적 파일 서버로 실행하세요 (예: `python -m http.server`).
+```bash
+python -m http.server 8000
+```
+브라우저에서 `http://localhost:8000` 접속.
