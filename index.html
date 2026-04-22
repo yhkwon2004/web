@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Library Portfolio · 3D Archive</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="intro" class="intro-screen">
+      <div class="intro-card">
+        <p class="subtitle">3D Library Portfolio</p>
+        <h1 id="owner-name">이름 로딩중...</h1>
+        <p id="owner-title">직무 로딩중...</p>
+        <p id="owner-career">경력 로딩중...</p>
+        <button id="enter-btn" class="primary-btn">문을 열고 입장하기</button>
+      </div>
+      <div class="door-wrap" aria-hidden="true">
+        <div class="door left"></div>
+        <div class="door right"></div>
+      </div>
+    </div>
+
+    <main id="app" class="hidden">
+      <canvas id="scene" aria-label="3D 도서관"></canvas>
+
+      <aside class="panel left-panel" aria-label="프로필">
+        <h2>포트폴리오 안내</h2>
+        <p id="profile-summary"></p>
+        <ul id="profile-meta" class="meta-list"></ul>
+        <div id="skill-chips" class="chips"></div>
+      </aside>
+
+      <section class="panel right-panel" aria-label="기록 아카이브">
+        <div class="panel-head">
+          <h2>기록 서가</h2>
+          <button id="add-item-btn" class="secondary-btn hidden">기록 추가</button>
+        </div>
+
+        <div class="toolbar">
+          <label>
+            역할
+            <select id="role-select">
+              <option value="visitor">이용자</option>
+              <option value="librarian">사서</option>
+            </select>
+          </label>
+          <label>
+            정렬
+            <select id="sort-select">
+              <option value="time-desc">시간순 (최신)</option>
+              <option value="time-asc">시간순 (오래된)</option>
+              <option value="name-asc">이름순 (가나다)</option>
+              <option value="name-desc">이름순 (역순)</option>
+            </select>
+          </label>
+          <label>
+            분류
+            <select id="category-filter">
+              <option value="all">전체</option>
+            </select>
+          </label>
+        </div>
+
+        <p class="hint">조작: 마우스/터치 드래그로만 시점 이동 · 책 클릭 시 해당 기록 강조</p>
+        <ul id="records" class="records"></ul>
+      </section>
+
+      <dialog id="editor-dialog">
+        <form id="editor-form" method="dialog">
+          <h3 id="editor-title">기록 편집</h3>
+          <input id="record-id" type="hidden" />
+          <label>제목 <input id="record-title" required /></label>
+          <label>요약 <textarea id="record-summary" rows="3" required></textarea></label>
+          <label>분류 <input id="record-category" required /></label>
+          <label>날짜 <input id="record-date" type="date" required /></label>
+          <label>성과 <input id="record-impact" required /></label>
+          <label>태그(쉼표 구분) <input id="record-tags" /></label>
+          <menu>
+            <button value="cancel" type="reset">취소</button>
+            <button value="default" type="submit">저장</button>
+          </menu>
+        </form>
+      </dialog>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
