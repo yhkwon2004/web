@@ -41,33 +41,36 @@ const ui = {
 
 const canvas = document.getElementById("scene");
 const scene = new THREE.Scene();
-scene.background = new THREE.Color("#020617");
-scene.fog = new THREE.Fog("#020617", 8, 25);
+scene.background = new THREE.Color("#030712");
+scene.fog = new THREE.Fog("#030712", 9, 30);
 
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 100);
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.12;
 
 const world = new THREE.Group();
 scene.add(world);
 
-const ambient = new THREE.AmbientLight("#bfdcff", 0.45);
-const warmLight = new THREE.PointLight("#fcd34d", 1.2, 18);
+const ambient = new THREE.HemisphereLight("#bfdbfe", "#1e1b4b", 0.75);
+const warmLight = new THREE.PointLight("#fde68a", 1.8, 22);
 warmLight.position.set(0, 4.8, -2.8);
-const rim = new THREE.DirectionalLight("#93c5fd", 0.7);
+const rim = new THREE.DirectionalLight("#c4b5fd", 1.1);
 rim.position.set(-4, 6, 5);
 scene.add(ambient, warmLight, rim);
 
 function buildRoom() {
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(22, 16),
-    new THREE.MeshStandardMaterial({ color: "#0f172a", roughness: 0.9 })
+    new THREE.MeshStandardMaterial({ color: "#111827", roughness: 0.58, metalness: 0.14 })
   );
   floor.rotation.x = -Math.PI / 2;
   world.add(floor);
 
-  const wallMat = new THREE.MeshStandardMaterial({ color: "#111827", roughness: 0.8 });
+  const wallMat = new THREE.MeshStandardMaterial({ color: "#0f172a", roughness: 0.52, metalness: 0.12 });
   const backWall = new THREE.Mesh(new THREE.PlaneGeometry(22, 8), wallMat);
   backWall.position.set(0, 4, -7.2);
   world.add(backWall);
@@ -95,13 +98,13 @@ function createShelfRow(z) {
     const shelf = new THREE.Group();
     const frame = new THREE.Mesh(
       new THREE.BoxGeometry(3.4, 2.8, 0.45),
-      new THREE.MeshStandardMaterial({ color: "#4b3326", roughness: 0.8 })
+      new THREE.MeshStandardMaterial({ color: "#5b3d2f", roughness: 0.42, metalness: 0.08 })
     );
     shelf.add(frame);
 
     const rail = new THREE.Mesh(
       new THREE.BoxGeometry(3.1, 0.08, 0.38),
-      new THREE.MeshStandardMaterial({ color: "#2b1d15", roughness: 0.9 })
+      new THREE.MeshStandardMaterial({ color: "#2a1d16", roughness: 0.36, metalness: 0.14 })
     );
     rail.position.set(0, 0.2, 0.18);
     shelf.add(rail.clone());
@@ -123,7 +126,7 @@ function buildAtmosphere() {
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(points, 3));
   const particles = new THREE.Points(
     geometry,
-    new THREE.PointsMaterial({ color: "#93c5fd", size: 0.035, transparent: true, opacity: 0.5 })
+    new THREE.PointsMaterial({ color: "#c4b5fd", size: 0.028, transparent: true, opacity: 0.35 })
   );
   particles.name = "particles";
   world.add(particles);
@@ -140,14 +143,9 @@ const controls = {
   isDragging: false,
   previousX: 0,
   previousY: 0,
-  keys: {
-    KeyW: false,
-    KeyA: false,
-    KeyS: false,
-    KeyD: false,
-    ShiftLeft: false,
-    ShiftRight: false
-  }
+  moveIntent: new THREE.Vector2(),
+  wheelImpulse: 0,
+  zoom: 2.9
 };
 
 const player = {
@@ -210,16 +208,18 @@ window.addEventListener("pointermove", (event) => {
   controls.previousX = event.clientX;
   controls.previousY = event.clientY;
 
-  controls.yaw -= dx * 0.0023;
-  controls.pitch = THREE.MathUtils.clamp(controls.pitch - dy * 0.0016, 0.12, 0.9);
+  controls.yaw -= dx * 0.002;
+  controls.pitch = THREE.MathUtils.clamp(controls.pitch - dy * 0.0015, 0.14, 0.9);
+  controls.moveIntent.x = THREE.MathUtils.clamp(dx * 0.012, -1, 1);
+  controls.moveIntent.y = THREE.MathUtils.clamp(-dy * 0.014, -1, 1);
 });
 
-window.addEventListener("keydown", (event) => {
-  if (event.code in controls.keys) controls.keys[event.code] = true;
-});
-window.addEventListener("keyup", (event) => {
-  if (event.code in controls.keys) controls.keys[event.code] = false;
-});
+canvas.addEventListener("wheel", (event) => {
+  event.preventDefault();
+  controls.wheelImpulse += Math.sign(-event.deltaY) * 0.85;
+  controls.zoom = THREE.MathUtils.clamp(controls.zoom + event.deltaY * 0.0015, 2.2, 4.2);
+}, { passive: false });
+
 
 const categoryColors = {
   프로젝트: "#38bdf8",
@@ -533,15 +533,12 @@ function updatePlayer(delta, elapsed) {
   const right = new THREE.Vector3().crossVectors(worldUp, forward).normalize().multiplyScalar(-1);
   const movement = new THREE.Vector3();
 
-  if (controls.keys.KeyW) movement.add(forward);
-  if (controls.keys.KeyS) movement.addScaledVector(forward, -1);
-  if (controls.keys.KeyA) movement.addScaledVector(right, -1);
-  if (controls.keys.KeyD) movement.add(right);
+  movement.addScaledVector(forward, controls.moveIntent.y + controls.wheelImpulse);
+  movement.addScaledVector(right, controls.moveIntent.x);
 
-  if (movement.lengthSq() > 0) {
+  if (movement.lengthSq() > 0.0001) {
     movement.normalize();
-    const speed = controls.keys.ShiftLeft || controls.keys.ShiftRight ? player.runSpeed : player.speed;
-    player.velocity.copy(movement.multiplyScalar(speed));
+    player.velocity.copy(movement.multiplyScalar(player.speed * 1.35));
     player.position.addScaledVector(player.velocity, delta);
     player.position.x = THREE.MathUtils.clamp(player.position.x, -9.5, 9.5);
     player.position.z = THREE.MathUtils.clamp(player.position.z, -6.5, 6.5);
@@ -550,6 +547,9 @@ function updatePlayer(delta, elapsed) {
     player.velocity.set(0, 0, 0);
   }
 
+  controls.moveIntent.multiplyScalar(0.84);
+  controls.wheelImpulse *= 0.82;
+
   player.body.position.copy(player.position);
   const stride = Math.sin(elapsed * (player.velocity.length() > 0 ? 12 : 2)) * 0.04;
   player.body.children[3].position.z = stride;
@@ -557,7 +557,7 @@ function updatePlayer(delta, elapsed) {
 }
 
 function updateCamera() {
-  const horizontalDistance = 2.9;
+  const horizontalDistance = controls.zoom;
   const verticalDistance = 1.9 + controls.pitch * 0.9;
   cameraOffset.set(Math.sin(controls.yaw + Math.PI) * horizontalDistance, verticalDistance, Math.cos(controls.yaw + Math.PI) * horizontalDistance);
   camera.position.copy(player.position).add(cameraOffset);
