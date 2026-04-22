@@ -36,7 +36,9 @@ const ui = {
   historyImage: document.getElementById("history-image"),
   historySummary: document.getElementById("history-summary"),
   historyTimeline: document.getElementById("history-timeline"),
-  historyClose: document.getElementById("history-close")
+  historyClose: document.getElementById("history-close"),
+  moveLeft: document.getElementById("move-left"),
+  moveRight: document.getElementById("move-right")
 };
 
 const canvas = document.getElementById("scene");
@@ -60,12 +62,15 @@ const warmLight = new THREE.PointLight("#fde68a", 1.8, 22);
 warmLight.position.set(0, 4.8, -2.8);
 const rim = new THREE.DirectionalLight("#c4b5fd", 1.1);
 rim.position.set(-4, 6, 5);
-scene.add(ambient, warmLight, rim);
+const spotlight = new THREE.SpotLight("#cbd5e1", 1.5, 36, Math.PI / 7, 0.35, 1.2);
+spotlight.position.set(0, 7, 4);
+spotlight.target.position.set(0, 1.2, -3.5);
+scene.add(ambient, warmLight, rim, spotlight, spotlight.target);
 
 function buildRoom() {
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(22, 16),
-    new THREE.MeshStandardMaterial({ color: "#111827", roughness: 0.58, metalness: 0.14 })
+    new THREE.MeshPhysicalMaterial({ color: "#0f172a", roughness: 0.76, metalness: 0.05, clearcoat: 0.15 })
   );
   floor.rotation.x = -Math.PI / 2;
   world.add(floor);
@@ -93,14 +98,23 @@ function buildRoom() {
 }
 
 const shelfGroups = [];
+const shelfSpacing = 4.2;
+const shelfWrapDistance = shelfSpacing * 9;
 function createShelfRow(z) {
-  for (let i = -2; i <= 2; i += 1) {
+  for (let i = -4; i <= 4; i += 1) {
     const shelf = new THREE.Group();
     const frame = new THREE.Mesh(
       new THREE.BoxGeometry(3.4, 2.8, 0.45),
-      new THREE.MeshStandardMaterial({ color: "#5b3d2f", roughness: 0.42, metalness: 0.08 })
+      new THREE.MeshStandardMaterial({ color: "#4b3326", roughness: 0.62, metalness: 0.06 })
     );
     shelf.add(frame);
+
+    const crown = new THREE.Mesh(
+      new THREE.BoxGeometry(3.45, 0.18, 0.48),
+      new THREE.MeshStandardMaterial({ color: "#6b4a34", roughness: 0.58 })
+    );
+    crown.position.set(0, 1.45, 0.02);
+    shelf.add(crown);
 
     const rail = new THREE.Mesh(
       new THREE.BoxGeometry(3.1, 0.08, 0.38),
@@ -111,7 +125,8 @@ function createShelfRow(z) {
     rail.position.y = -0.9;
     shelf.add(rail.clone());
 
-    shelf.position.set(i * 4.2, 1.45, z);
+    shelf.position.set(i * shelfSpacing, 1.45, z);
+    shelf.userData.baseX = i * shelfSpacing;
     world.add(shelf);
     shelfGroups.push(shelf);
   }
@@ -143,43 +158,55 @@ const controls = {
   isDragging: false,
   previousX: 0,
   previousY: 0,
-  moveIntent: new THREE.Vector2(),
-  wheelImpulse: 0,
-  zoom: 2.9
+  moveDirection: 0,
+  teleportTargetX: null
 };
 
 const player = {
   body: null,
   velocity: new THREE.Vector3(),
   position: new THREE.Vector3(0, 0, 2.5),
-  speed: 2.5,
-  runSpeed: 4.2
+  speed: 2.5
 };
 
 function buildPlayer() {
   const avatar = new THREE.Group();
   const hoodie = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.27, 0.7, 8, 16),
-    new THREE.MeshStandardMaterial({ color: "#05070b", roughness: 0.65 })
+    new THREE.CapsuleGeometry(0.28, 0.78, 12, 24),
+    new THREE.MeshStandardMaterial({ color: "#05070b", roughness: 0.78, metalness: 0.02 })
   );
   hoodie.position.y = 1.05;
   avatar.add(hoodie);
 
   const hood = new THREE.Mesh(
-    new THREE.SphereGeometry(0.24, 18, 18),
-    new THREE.MeshStandardMaterial({ color: "#090b12", roughness: 0.6 })
+    new THREE.SphereGeometry(0.25, 28, 28),
+    new THREE.MeshStandardMaterial({ color: "#080b12", roughness: 0.82 })
   );
   hood.position.set(0, 1.62, 0.06);
   avatar.add(hood);
 
   const face = new THREE.Mesh(
-    new THREE.SphereGeometry(0.13, 12, 12),
-    new THREE.MeshStandardMaterial({ color: "#f0d0bf", roughness: 0.7 })
+    new THREE.SphereGeometry(0.15, 24, 24),
+    new THREE.MeshStandardMaterial({ color: "#efc8b1", roughness: 0.58 })
   );
-  face.position.set(0, 1.56, 0.12);
+  face.position.set(0, 1.55, 0.13);
   avatar.add(face);
 
-  const legGeometry = new THREE.BoxGeometry(0.12, 0.6, 0.12);
+  const hair = new THREE.Mesh(
+    new THREE.SphereGeometry(0.16, 24, 24, 0, Math.PI * 2, 0, Math.PI * 0.58),
+    new THREE.MeshStandardMaterial({ color: "#111315", roughness: 0.95 })
+  );
+  hair.position.set(0, 1.64, 0.07);
+  avatar.add(hair);
+
+  const backpack = new THREE.Mesh(
+    new THREE.BoxGeometry(0.2, 0.36, 0.14),
+    new THREE.MeshStandardMaterial({ color: "#101828", roughness: 0.7 })
+  );
+  backpack.position.set(0, 1.02, -0.2);
+  avatar.add(backpack);
+
+  const legGeometry = new THREE.CapsuleGeometry(0.06, 0.45, 8, 14);
   const legMaterial = new THREE.MeshStandardMaterial({ color: "#111827" });
   const leftLeg = new THREE.Mesh(legGeometry, legMaterial);
   leftLeg.position.set(-0.09, 0.3, 0);
@@ -208,18 +235,18 @@ window.addEventListener("pointermove", (event) => {
   controls.previousX = event.clientX;
   controls.previousY = event.clientY;
 
-  controls.yaw -= dx * 0.002;
-  controls.pitch = THREE.MathUtils.clamp(controls.pitch - dy * 0.0015, 0.14, 0.9);
-  controls.moveIntent.x = THREE.MathUtils.clamp(dx * 0.012, -1, 1);
-  controls.moveIntent.y = THREE.MathUtils.clamp(-dy * 0.014, -1, 1);
+  controls.yaw -= dx * 0.0023;
+  controls.pitch = THREE.MathUtils.clamp(controls.pitch - dy * 0.0016, 0.12, 0.9);
 });
 
-canvas.addEventListener("wheel", (event) => {
-  event.preventDefault();
-  controls.wheelImpulse += Math.sign(-event.deltaY) * 0.85;
-  controls.zoom = THREE.MathUtils.clamp(controls.zoom + event.deltaY * 0.0015, 2.2, 4.2);
-}, { passive: false });
-
+function bindMoveButton(button, direction) {
+  button.addEventListener("click", () => {
+    controls.teleportTargetX = player.position.x + direction * 3.1;
+    controls.moveDirection = direction;
+  });
+}
+bindMoveButton(ui.moveLeft, -1);
+bindMoveButton(ui.moveRight, 1);
 
 const categoryColors = {
   프로젝트: "#38bdf8",
@@ -332,15 +359,24 @@ function renderBooks() {
 
     const book = new THREE.Mesh(
       new THREE.BoxGeometry(0.3, 0.95, 0.25),
-      new THREE.MeshStandardMaterial({
+      new THREE.MeshPhysicalMaterial({
         color: categoryColors[record.category] || categoryColors.default,
         emissive: "#0b1120",
-        roughness: 0.52
+        roughness: 0.42,
+        metalness: 0.08,
+        clearcoat: 0.2
       })
     );
     book.position.set(-1.25 + column * 0.33, -0.95 + level * 1.12, 0.3);
     book.userData.recordId = record.id;
     shelf.add(book);
+
+    const spine = new THREE.Mesh(
+      new THREE.BoxGeometry(0.05, 0.9, 0.255),
+      new THREE.MeshStandardMaterial({ color: "#f8fafc", roughness: 0.35 })
+    );
+    spine.position.x = 0.13;
+    book.add(spine);
 
     const worldPosition = new THREE.Vector3();
     book.getWorldPosition(worldPosition);
@@ -351,20 +387,15 @@ function renderBooks() {
 function renderRecords() {
   ui.records.innerHTML = "";
   state.filteredRecords.forEach((record) => {
-    const li = document.createElement("li");
-    li.className = `record ${state.selectedRecordId === record.id ? "active" : ""}`;
-    li.dataset.id = record.id;
-    li.innerHTML = `
-      <h3>${record.title}</h3>
-      <p>${record.summary}</p>
-      <p class="meta">${record.category} · ${record.date} · ${record.impact}</p>
-      <div class="tags">${record.tags.map((tag) => `<span>${tag}</span>`).join("")}</div>
-      <div class="actions ${state.role === "librarian" ? "" : "hidden"}">
-        <button class="action-btn" data-action="edit" data-id="${record.id}">수정</button>
-        <button class="action-btn" data-action="delete" data-id="${record.id}">삭제</button>
-      </div>
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `record-btn ${state.selectedRecordId === record.id ? "active" : ""}`;
+    button.dataset.id = record.id;
+    button.innerHTML = `
+      <strong>${record.title}</strong>
+      <small>${record.category} · ${record.date}</small>
     `;
-    ui.records.append(li);
+    ui.records.append(button);
   });
 }
 
@@ -377,7 +408,7 @@ function refresh() {
 
 function setSelectedRecord(id) {
   state.selectedRecordId = id;
-  document.querySelectorAll(".record").forEach((node) => {
+  document.querySelectorAll(".record-btn").forEach((node) => {
     node.classList.toggle("active", node.dataset.id === id);
   });
 }
@@ -407,26 +438,17 @@ function closeHistoryBook() {
 ui.historyClose.addEventListener("click", closeHistoryBook);
 
 ui.records.addEventListener("click", (event) => {
-  const button = event.target;
-  if (!(button instanceof HTMLButtonElement)) return;
-  if (state.role !== "librarian") return;
-
-  const { action, id } = button.dataset;
-  if (!id) return;
-  if (action === "delete") {
-    state.records = state.records.filter((record) => record.id !== id);
-    saveLocal();
-    refresh();
+  const button = event.target.closest(".record-btn");
+  if (!(button instanceof HTMLElement)) return;
+  const targetBook = state.books.find((book) => book.recordId === button.dataset.id);
+  if (targetBook) {
+    targetBook.mesh.getWorldPosition(targetBook.worldPosition);
+    player.position.x = targetBook.worldPosition.x;
+    player.position.z = 2.5;
+    player.body.position.copy(player.position);
+    controls.teleportTargetX = null;
   }
-  if (action === "edit") {
-    openEditor(state.records.find((record) => record.id === id));
-  }
-});
-
-ui.records.addEventListener("pointerdown", (event) => {
-  const card = event.target.closest(".record");
-  if (!(card instanceof HTMLElement)) return;
-  setSelectedRecord(card.dataset.id);
+  openHistoryBook(button.dataset.id);
 });
 
 function openEditor(record) {
@@ -526,38 +548,36 @@ async function loadPortfolio() {
 const clock = new THREE.Clock();
 const cameraOffset = new THREE.Vector3();
 const lookAtTarget = new THREE.Vector3();
-const worldUp = new THREE.Vector3(0, 1, 0);
 
 function updatePlayer(delta, elapsed) {
-  const forward = new THREE.Vector3(Math.sin(controls.yaw), 0, Math.cos(controls.yaw)).normalize();
-  const right = new THREE.Vector3().crossVectors(worldUp, forward).normalize().multiplyScalar(-1);
-  const movement = new THREE.Vector3();
-
-  movement.addScaledVector(forward, controls.moveIntent.y + controls.wheelImpulse);
-  movement.addScaledVector(right, controls.moveIntent.x);
-
-  if (movement.lengthSq() > 0.0001) {
-    movement.normalize();
-    player.velocity.copy(movement.multiplyScalar(player.speed * 1.35));
-    player.position.addScaledVector(player.velocity, delta);
-    player.position.x = THREE.MathUtils.clamp(player.position.x, -9.5, 9.5);
-    player.position.z = THREE.MathUtils.clamp(player.position.z, -6.5, 6.5);
-    player.body.rotation.y = Math.atan2(player.velocity.x, player.velocity.z);
+  let movement = controls.moveDirection * player.speed;
+  if (typeof controls.teleportTargetX === "number") {
+    const distance = controls.teleportTargetX - player.position.x;
+    const step = THREE.MathUtils.clamp(distance, -8 * delta, 8 * delta);
+    player.position.x += step;
+    movement = step / Math.max(delta, 0.0001);
+    if (Math.abs(distance) < 0.03) {
+      player.position.x = controls.teleportTargetX;
+      controls.teleportTargetX = null;
+      controls.moveDirection = 0;
+      movement = 0;
+    }
   } else {
-    player.velocity.set(0, 0, 0);
+    controls.moveDirection = 0;
   }
 
-  controls.moveIntent.multiplyScalar(0.84);
-  controls.wheelImpulse *= 0.82;
+  player.velocity.set(movement, 0, 0);
+  player.position.z = 2.5;
+  if (movement !== 0) player.body.rotation.y = movement > 0 ? Math.PI / 2 : -Math.PI / 2;
 
   player.body.position.copy(player.position);
-  const stride = Math.sin(elapsed * (player.velocity.length() > 0 ? 12 : 2)) * 0.04;
-  player.body.children[3].position.z = stride;
-  player.body.children[4].position.z = -stride;
+  const stride = Math.sin(elapsed * (Math.abs(movement) > 0 ? 12 : 2)) * 0.04;
+  player.body.children[5].position.z = stride;
+  player.body.children[6].position.z = -stride;
 }
 
 function updateCamera() {
-  const horizontalDistance = controls.zoom;
+  const horizontalDistance = 2.9;
   const verticalDistance = 1.9 + controls.pitch * 0.9;
   cameraOffset.set(Math.sin(controls.yaw + Math.PI) * horizontalDistance, verticalDistance, Math.cos(controls.yaw + Math.PI) * horizontalDistance);
   camera.position.copy(player.position).add(cameraOffset);
@@ -575,12 +595,21 @@ function checkNearbyRecords() {
   }
 }
 
+function wrapShelvesAroundPlayer() {
+  shelfGroups.forEach((shelf) => {
+    const diff = shelf.position.x - player.position.x;
+    if (diff > shelfWrapDistance) shelf.position.x -= shelfWrapDistance * 2;
+    if (diff < -shelfWrapDistance) shelf.position.x += shelfWrapDistance * 2;
+  });
+}
+
 function animate() {
   requestAnimationFrame(animate);
 
   const delta = clock.getDelta();
   const elapsed = clock.elapsedTime;
   updatePlayer(delta, elapsed);
+  wrapShelvesAroundPlayer();
   updateCamera();
   checkNearbyRecords();
 

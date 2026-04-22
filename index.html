@@ -62,8 +62,8 @@
           </label>
         </div>
 
-        <p class="hint">조작: 드래그로 이동/시점 제어 · 마우스휠로 전진/후진 및 줌 · 기록 터치 시 이력 책 열기</p>
-        <ul id="records" class="records"></ul>
+        <p class="hint">조작: 하단 좌/우 버튼으로 이동 · 마우스/터치 드래그로 시점 회전 · 버튼/근접/터치로 이력 책 열기</p>
+        <div id="records" class="record-buttons"></div>
       </section>
 
       <section id="history-book" class="history-book hidden" aria-live="polite">
@@ -81,6 +81,11 @@
           </article>
         </div>
       </section>
+
+      <div class="move-controls" aria-label="이동 컨트롤">
+        <button id="move-left" class="primary-btn" type="button">◀ 왼쪽</button>
+        <button id="move-right" class="primary-btn" type="button">오른쪽 ▶</button>
+      </div>
 
       <dialog id="editor-dialog">
         <form id="editor-form" method="dialog">
