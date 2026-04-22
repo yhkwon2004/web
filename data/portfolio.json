@@ -21,7 +21,9 @@
       "category": "프로젝트",
       "date": "2025-11-12",
       "impact": "전환율 +21%",
-      "tags": ["Three.js", "UX", "Commerce"]
+      "tags": ["Three.js", "UX", "Commerce"],
+      "image": "https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=900&q=80",
+      "history": ["2025-08: 사용자 여정 분석 완료", "2025-10: 3D 인터랙션 MVP 출시", "2025-11: 전환율 +21% 달성"]
     },
     {
       "id": "system-renew-2024",
@@ -30,7 +32,9 @@
       "category": "경험",
       "date": "2024-07-01",
       "impact": "릴리즈 리드타임 -34%",
-      "tags": ["Design System", "A11y", "Frontend Platform"]
+      "tags": ["Design System", "A11y", "Frontend Platform"],
+      "image": "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80",
+      "history": ["2024-01: 핵심 컴포넌트 진단", "2024-04: 접근성 규칙 자동 검사 도입", "2024-07: 리드타임 34% 개선"]
     },
     {
       "id": "exhibition-app-2023",
@@ -39,7 +43,9 @@
       "category": "프로젝트",
       "date": "2023-03-20",
       "impact": "평균 체류시간 2배",
-      "tags": ["WebGL", "Storytelling"]
+      "tags": ["WebGL", "Storytelling"],
+      "image": "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=900&q=80",
+      "history": ["2022-12: 스토리보드 설계", "2023-02: 전시장 프로토타입 테스트", "2023-03: 체류시간 2배 달성"]
     },
     {
       "id": "mentor-program-2022",
@@ -48,7 +54,9 @@
       "category": "활동",
       "date": "2022-09-15",
       "impact": "온보딩 기간 -40%",
-      "tags": ["Mentoring", "Culture"]
+      "tags": ["Mentoring", "Culture"],
+      "image": "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=900&q=80",
+      "history": ["2022-03: 주니어 성장 로드맵 작성", "2022-06: 코드리뷰 템플릿 배포", "2022-09: 온보딩 기간 40% 단축"]
     }
   ]
 }
