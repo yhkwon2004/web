@@ -10,7 +10,8 @@ const state = {
   records: [],
   filteredRecords: [],
   selectedRecordId: null,
-  books: []
+  books: [],
+  activeHistoryId: null
 };
 
 const ui = {
@@ -29,7 +30,13 @@ const ui = {
   records: document.getElementById("records"),
   addBtn: document.getElementById("add-item-btn"),
   dialog: document.getElementById("editor-dialog"),
-  form: document.getElementById("editor-form")
+  form: document.getElementById("editor-form"),
+  historyBook: document.getElementById("history-book"),
+  historyTitle: document.getElementById("history-title"),
+  historyImage: document.getElementById("history-image"),
+  historySummary: document.getElementById("history-summary"),
+  historyTimeline: document.getElementById("history-timeline"),
+  historyClose: document.getElementById("history-close")
 };
 
 const canvas = document.getElementById("scene");
@@ -127,46 +134,91 @@ createShelfRow(-5.5);
 createShelfRow(-2.7);
 buildAtmosphere();
 
-const orbit = {
+const controls = {
   yaw: 0,
-  pitch: 0.22,
-  radius: 10,
+  pitch: 0.34,
   isDragging: false,
   previousX: 0,
   previousY: 0,
-  velocityX: 0,
-  velocityY: 0
+  keys: {
+    KeyW: false,
+    KeyA: false,
+    KeyS: false,
+    KeyD: false,
+    ShiftLeft: false,
+    ShiftRight: false
+  }
 };
 
-function updateCamera() {
-  const x = Math.sin(orbit.yaw) * orbit.radius;
-  const z = Math.cos(orbit.yaw) * orbit.radius;
-  const y = 2.2 + Math.sin(orbit.pitch) * 2;
-  camera.position.set(x, y, z + 1.5);
-  camera.lookAt(0, 1.4, -4.2);
+const player = {
+  body: null,
+  velocity: new THREE.Vector3(),
+  position: new THREE.Vector3(0, 0, 2.5),
+  speed: 2.5,
+  runSpeed: 4.2
+};
+
+function buildPlayer() {
+  const avatar = new THREE.Group();
+  const hoodie = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.27, 0.7, 8, 16),
+    new THREE.MeshStandardMaterial({ color: "#05070b", roughness: 0.65 })
+  );
+  hoodie.position.y = 1.05;
+  avatar.add(hoodie);
+
+  const hood = new THREE.Mesh(
+    new THREE.SphereGeometry(0.24, 18, 18),
+    new THREE.MeshStandardMaterial({ color: "#090b12", roughness: 0.6 })
+  );
+  hood.position.set(0, 1.62, 0.06);
+  avatar.add(hood);
+
+  const face = new THREE.Mesh(
+    new THREE.SphereGeometry(0.13, 12, 12),
+    new THREE.MeshStandardMaterial({ color: "#f0d0bf", roughness: 0.7 })
+  );
+  face.position.set(0, 1.56, 0.12);
+  avatar.add(face);
+
+  const legGeometry = new THREE.BoxGeometry(0.12, 0.6, 0.12);
+  const legMaterial = new THREE.MeshStandardMaterial({ color: "#111827" });
+  const leftLeg = new THREE.Mesh(legGeometry, legMaterial);
+  leftLeg.position.set(-0.09, 0.3, 0);
+  const rightLeg = leftLeg.clone();
+  rightLeg.position.x = 0.09;
+  avatar.add(leftLeg, rightLeg);
+
+  avatar.position.copy(player.position);
+  world.add(avatar);
+  player.body = avatar;
 }
-updateCamera();
+buildPlayer();
 
 canvas.addEventListener("pointerdown", (event) => {
-  orbit.isDragging = true;
-  orbit.previousX = event.clientX;
-  orbit.previousY = event.clientY;
+  controls.isDragging = true;
+  controls.previousX = event.clientX;
+  controls.previousY = event.clientY;
 });
 window.addEventListener("pointerup", () => {
-  orbit.isDragging = false;
+  controls.isDragging = false;
 });
 window.addEventListener("pointermove", (event) => {
-  if (!orbit.isDragging) return;
-  const dx = event.clientX - orbit.previousX;
-  const dy = event.clientY - orbit.previousY;
-  orbit.previousX = event.clientX;
-  orbit.previousY = event.clientY;
+  if (!controls.isDragging) return;
+  const dx = event.clientX - controls.previousX;
+  const dy = event.clientY - controls.previousY;
+  controls.previousX = event.clientX;
+  controls.previousY = event.clientY;
 
-  orbit.velocityX = -dx * 0.0013;
-  orbit.velocityY = -dy * 0.001;
-  orbit.yaw += orbit.velocityX;
-  orbit.pitch = THREE.MathUtils.clamp(orbit.pitch + orbit.velocityY, -0.5, 0.9);
-  updateCamera();
+  controls.yaw -= dx * 0.0023;
+  controls.pitch = THREE.MathUtils.clamp(controls.pitch - dy * 0.0016, 0.12, 0.9);
+});
+
+window.addEventListener("keydown", (event) => {
+  if (event.code in controls.keys) controls.keys[event.code] = true;
+});
+window.addEventListener("keyup", (event) => {
+  if (event.code in controls.keys) controls.keys[event.code] = false;
 });
 
 const categoryColors = {
@@ -204,7 +256,14 @@ function normalizeRecord(raw) {
       : String(raw.tags || "")
           .split(",")
           .map((tag) => tag.trim())
-          .filter(Boolean)
+          .filter(Boolean),
+    image: raw.image || `https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=900&q=80`,
+    history: Array.isArray(raw.history)
+      ? raw.history
+      : [
+          `${raw.date || new Date().toISOString().slice(0, 10)} · ${raw.summary || "설명 없음"}`,
+          `성과: ${raw.impact || "성과 미기입"}`
+        ]
   };
 }
 
@@ -283,7 +342,9 @@ function renderBooks() {
     book.userData.recordId = record.id;
     shelf.add(book);
 
-    state.books.push({ mesh: book, baseY: book.position.y, recordId: record.id });
+    const worldPosition = new THREE.Vector3();
+    book.getWorldPosition(worldPosition);
+    state.books.push({ mesh: book, baseY: book.position.y, recordId: record.id, worldPosition });
   });
 }
 
@@ -320,6 +381,30 @@ function setSelectedRecord(id) {
     node.classList.toggle("active", node.dataset.id === id);
   });
 }
+
+function openHistoryBook(recordId) {
+  const target = state.records.find((record) => record.id === recordId);
+  if (!target) return;
+  state.activeHistoryId = target.id;
+  setSelectedRecord(target.id);
+  ui.historyTitle.textContent = target.title;
+  ui.historySummary.textContent = target.summary;
+  ui.historyImage.src = target.image;
+  ui.historyTimeline.innerHTML = "";
+  target.history.forEach((line) => {
+    const li = document.createElement("li");
+    li.textContent = line;
+    ui.historyTimeline.append(li);
+  });
+  ui.historyBook.classList.remove("hidden");
+}
+
+function closeHistoryBook() {
+  state.activeHistoryId = null;
+  ui.historyBook.classList.add("hidden");
+}
+
+ui.historyClose.addEventListener("click", closeHistoryBook);
 
 ui.records.addEventListener("click", (event) => {
   const button = event.target;
@@ -420,7 +505,7 @@ canvas.addEventListener("click", (event) => {
   if (!intersects.length) return;
 
   const recordId = intersects[0].object.userData.recordId;
-  setSelectedRecord(recordId);
+  openHistoryBook(recordId);
   document.querySelector(`[data-id="${recordId}"]`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
 });
 
@@ -439,21 +524,65 @@ async function loadPortfolio() {
 }
 
 const clock = new THREE.Clock();
+const cameraOffset = new THREE.Vector3();
+const lookAtTarget = new THREE.Vector3();
+const worldUp = new THREE.Vector3(0, 1, 0);
+
+function updatePlayer(delta, elapsed) {
+  const forward = new THREE.Vector3(Math.sin(controls.yaw), 0, Math.cos(controls.yaw)).normalize();
+  const right = new THREE.Vector3().crossVectors(worldUp, forward).normalize().multiplyScalar(-1);
+  const movement = new THREE.Vector3();
+
+  if (controls.keys.KeyW) movement.add(forward);
+  if (controls.keys.KeyS) movement.addScaledVector(forward, -1);
+  if (controls.keys.KeyA) movement.addScaledVector(right, -1);
+  if (controls.keys.KeyD) movement.add(right);
+
+  if (movement.lengthSq() > 0) {
+    movement.normalize();
+    const speed = controls.keys.ShiftLeft || controls.keys.ShiftRight ? player.runSpeed : player.speed;
+    player.velocity.copy(movement.multiplyScalar(speed));
+    player.position.addScaledVector(player.velocity, delta);
+    player.position.x = THREE.MathUtils.clamp(player.position.x, -9.5, 9.5);
+    player.position.z = THREE.MathUtils.clamp(player.position.z, -6.5, 6.5);
+    player.body.rotation.y = Math.atan2(player.velocity.x, player.velocity.z);
+  } else {
+    player.velocity.set(0, 0, 0);
+  }
+
+  player.body.position.copy(player.position);
+  const stride = Math.sin(elapsed * (player.velocity.length() > 0 ? 12 : 2)) * 0.04;
+  player.body.children[3].position.z = stride;
+  player.body.children[4].position.z = -stride;
+}
+
+function updateCamera() {
+  const horizontalDistance = 2.9;
+  const verticalDistance = 1.9 + controls.pitch * 0.9;
+  cameraOffset.set(Math.sin(controls.yaw + Math.PI) * horizontalDistance, verticalDistance, Math.cos(controls.yaw + Math.PI) * horizontalDistance);
+  camera.position.copy(player.position).add(cameraOffset);
+  lookAtTarget.copy(player.position).add(new THREE.Vector3(0, 1.25, 0));
+  camera.lookAt(lookAtTarget);
+}
+
+function checkNearbyRecords() {
+  const near = state.books.find((book) => {
+    book.mesh.getWorldPosition(book.worldPosition);
+    return book.worldPosition.distanceTo(player.position) < 1.2;
+  });
+  if (near && state.activeHistoryId !== near.recordId) {
+    openHistoryBook(near.recordId);
+  }
+}
+
 function animate() {
   requestAnimationFrame(animate);
 
   const delta = clock.getDelta();
   const elapsed = clock.elapsedTime;
-
-  if (!orbit.isDragging) {
-    orbit.velocityX *= 0.92;
-    orbit.velocityY *= 0.9;
-    if (Math.abs(orbit.velocityX) > 0.00001) {
-      orbit.yaw += orbit.velocityX;
-      orbit.pitch = THREE.MathUtils.clamp(orbit.pitch + orbit.velocityY, -0.5, 0.9);
-      updateCamera();
-    }
-  }
+  updatePlayer(delta, elapsed);
+  updateCamera();
+  checkNearbyRecords();
 
   const particleCloud = world.getObjectByName("particles");
   if (particleCloud) particleCloud.rotation.y += delta * 0.03;

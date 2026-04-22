@@ -62,8 +62,24 @@
           </label>
         </div>
 
-        <p class="hint">조작: 마우스/터치 드래그로만 시점 이동 · 책 클릭 시 해당 기록 강조</p>
+        <p class="hint">조작: WASD 이동 · Shift 달리기 · 마우스/터치로 시점 회전 · 기록 근처 접근/터치 시 이력 책 열기</p>
         <ul id="records" class="records"></ul>
+      </section>
+
+      <section id="history-book" class="history-book hidden" aria-live="polite">
+        <header>
+          <h3 id="history-title">기록 제목</h3>
+          <button id="history-close" class="action-btn" type="button">닫기</button>
+        </header>
+        <div class="book-pages">
+          <article class="page left">
+            <img id="history-image" alt="기록 이미지" />
+          </article>
+          <article class="page right">
+            <p id="history-summary"></p>
+            <ul id="history-timeline" class="meta-list"></ul>
+          </article>
+        </div>
       </section>
 
       <dialog id="editor-dialog">
