@@ -46,29 +46,7 @@
   ]
 }
 ```
-
-## 로컬 실행
 ```bash
 python -m http.server 8000
 ```
 브라우저에서 `http://localhost:8000` 접속.
-
-## 배포 (GitHub Pages 자동 배포)
-이 저장소에는 `.github/workflows/deploy-pages.yml`이 포함되어 있어서, `main` 브랜치에 푸시하면 자동 배포됩니다.
-
-### 1) GitHub에서 Pages 설정
-1. 저장소 → **Settings** → **Pages**
-2. **Build and deployment**에서 **Source = GitHub Actions** 선택
-
-### 2) main 브랜치에 푸시
-```bash
-git push origin main
-```
-
-### 3) 배포 주소 확인
-- Actions 탭에서 `Deploy portfolio to GitHub Pages` 워크플로 성공 확인
-- 배포 URL: `https://<github-username>.github.io/<repo-name>/`
-
-## 참고
-- 본 앱은 정적 파일 기반이라 CDN/정적 호스팅(Cloudflare Pages, Netlify, Vercel)에도 바로 배포 가능합니다.
-- `localStorage` 편집 데이터는 사용자 브라우저별로 저장됩니다(원본 `data/portfolio.json`은 변경되지 않음).
