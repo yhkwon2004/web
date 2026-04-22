@@ -43,21 +43,24 @@ const ui = {
 
 const canvas = document.getElementById("scene");
 const scene = new THREE.Scene();
-scene.background = new THREE.Color("#020617");
-scene.fog = new THREE.Fog("#020617", 8, 25);
+scene.background = new THREE.Color("#030712");
+scene.fog = new THREE.Fog("#030712", 9, 30);
 
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 100);
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.12;
 
 const world = new THREE.Group();
 scene.add(world);
 
-const ambient = new THREE.AmbientLight("#bfdcff", 0.45);
-const warmLight = new THREE.PointLight("#fcd34d", 1.2, 18);
+const ambient = new THREE.HemisphereLight("#bfdbfe", "#1e1b4b", 0.75);
+const warmLight = new THREE.PointLight("#fde68a", 1.8, 22);
 warmLight.position.set(0, 4.8, -2.8);
-const rim = new THREE.DirectionalLight("#93c5fd", 0.7);
+const rim = new THREE.DirectionalLight("#c4b5fd", 1.1);
 rim.position.set(-4, 6, 5);
 const spotlight = new THREE.SpotLight("#cbd5e1", 1.5, 36, Math.PI / 7, 0.35, 1.2);
 spotlight.position.set(0, 7, 4);
@@ -72,7 +75,7 @@ function buildRoom() {
   floor.rotation.x = -Math.PI / 2;
   world.add(floor);
 
-  const wallMat = new THREE.MeshStandardMaterial({ color: "#111827", roughness: 0.8 });
+  const wallMat = new THREE.MeshStandardMaterial({ color: "#0f172a", roughness: 0.52, metalness: 0.12 });
   const backWall = new THREE.Mesh(new THREE.PlaneGeometry(22, 8), wallMat);
   backWall.position.set(0, 4, -7.2);
   world.add(backWall);
@@ -115,7 +118,7 @@ function createShelfRow(z) {
 
     const rail = new THREE.Mesh(
       new THREE.BoxGeometry(3.1, 0.08, 0.38),
-      new THREE.MeshStandardMaterial({ color: "#2b1d15", roughness: 0.9 })
+      new THREE.MeshStandardMaterial({ color: "#2a1d16", roughness: 0.36, metalness: 0.14 })
     );
     rail.position.set(0, 0.2, 0.18);
     shelf.add(rail.clone());
@@ -138,7 +141,7 @@ function buildAtmosphere() {
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(points, 3));
   const particles = new THREE.Points(
     geometry,
-    new THREE.PointsMaterial({ color: "#93c5fd", size: 0.035, transparent: true, opacity: 0.5 })
+    new THREE.PointsMaterial({ color: "#c4b5fd", size: 0.028, transparent: true, opacity: 0.35 })
   );
   particles.name = "particles";
   world.add(particles);
