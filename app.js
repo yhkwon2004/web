@@ -10,7 +10,8 @@ const state = {
   records: [],
   filteredRecords: [],
   selectedRecordId: null,
-  books: []
+  books: [],
+  activeHistoryId: null
 };
 
 const ui = {
@@ -29,7 +30,15 @@ const ui = {
   records: document.getElementById("records"),
   addBtn: document.getElementById("add-item-btn"),
   dialog: document.getElementById("editor-dialog"),
-  form: document.getElementById("editor-form")
+  form: document.getElementById("editor-form"),
+  historyBook: document.getElementById("history-book"),
+  historyTitle: document.getElementById("history-title"),
+  historyImage: document.getElementById("history-image"),
+  historySummary: document.getElementById("history-summary"),
+  historyTimeline: document.getElementById("history-timeline"),
+  historyClose: document.getElementById("history-close"),
+  moveLeft: document.getElementById("move-left"),
+  moveRight: document.getElementById("move-right")
 };
 
 const canvas = document.getElementById("scene");
@@ -50,12 +59,15 @@ const warmLight = new THREE.PointLight("#fcd34d", 1.2, 18);
 warmLight.position.set(0, 4.8, -2.8);
 const rim = new THREE.DirectionalLight("#93c5fd", 0.7);
 rim.position.set(-4, 6, 5);
-scene.add(ambient, warmLight, rim);
+const spotlight = new THREE.SpotLight("#cbd5e1", 1.5, 36, Math.PI / 7, 0.35, 1.2);
+spotlight.position.set(0, 7, 4);
+spotlight.target.position.set(0, 1.2, -3.5);
+scene.add(ambient, warmLight, rim, spotlight, spotlight.target);
 
 function buildRoom() {
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(22, 16),
-    new THREE.MeshStandardMaterial({ color: "#0f172a", roughness: 0.9 })
+    new THREE.MeshPhysicalMaterial({ color: "#0f172a", roughness: 0.76, metalness: 0.05, clearcoat: 0.15 })
   );
   floor.rotation.x = -Math.PI / 2;
   world.add(floor);
@@ -83,14 +95,23 @@ function buildRoom() {
 }
 
 const shelfGroups = [];
+const shelfSpacing = 4.2;
+const shelfWrapDistance = shelfSpacing * 9;
 function createShelfRow(z) {
-  for (let i = -2; i <= 2; i += 1) {
+  for (let i = -4; i <= 4; i += 1) {
     const shelf = new THREE.Group();
     const frame = new THREE.Mesh(
       new THREE.BoxGeometry(3.4, 2.8, 0.45),
-      new THREE.MeshStandardMaterial({ color: "#4b3326", roughness: 0.8 })
+      new THREE.MeshStandardMaterial({ color: "#4b3326", roughness: 0.62, metalness: 0.06 })
     );
     shelf.add(frame);
+
+    const crown = new THREE.Mesh(
+      new THREE.BoxGeometry(3.45, 0.18, 0.48),
+      new THREE.MeshStandardMaterial({ color: "#6b4a34", roughness: 0.58 })
+    );
+    crown.position.set(0, 1.45, 0.02);
+    shelf.add(crown);
 
     const rail = new THREE.Mesh(
       new THREE.BoxGeometry(3.1, 0.08, 0.38),
@@ -101,7 +122,8 @@ function createShelfRow(z) {
     rail.position.y = -0.9;
     shelf.add(rail.clone());
 
-    shelf.position.set(i * 4.2, 1.45, z);
+    shelf.position.set(i * shelfSpacing, 1.45, z);
+    shelf.userData.baseX = i * shelfSpacing;
     world.add(shelf);
     shelfGroups.push(shelf);
   }
@@ -127,47 +149,101 @@ createShelfRow(-5.5);
 createShelfRow(-2.7);
 buildAtmosphere();
 
-const orbit = {
+const controls = {
   yaw: 0,
-  pitch: 0.22,
-  radius: 10,
+  pitch: 0.34,
   isDragging: false,
   previousX: 0,
   previousY: 0,
-  velocityX: 0,
-  velocityY: 0
+  moveDirection: 0,
+  teleportTargetX: null
 };
 
-function updateCamera() {
-  const x = Math.sin(orbit.yaw) * orbit.radius;
-  const z = Math.cos(orbit.yaw) * orbit.radius;
-  const y = 2.2 + Math.sin(orbit.pitch) * 2;
-  camera.position.set(x, y, z + 1.5);
-  camera.lookAt(0, 1.4, -4.2);
+const player = {
+  body: null,
+  velocity: new THREE.Vector3(),
+  position: new THREE.Vector3(0, 0, 2.5),
+  speed: 2.5
+};
+
+function buildPlayer() {
+  const avatar = new THREE.Group();
+  const hoodie = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.28, 0.78, 12, 24),
+    new THREE.MeshStandardMaterial({ color: "#05070b", roughness: 0.78, metalness: 0.02 })
+  );
+  hoodie.position.y = 1.05;
+  avatar.add(hoodie);
+
+  const hood = new THREE.Mesh(
+    new THREE.SphereGeometry(0.25, 28, 28),
+    new THREE.MeshStandardMaterial({ color: "#080b12", roughness: 0.82 })
+  );
+  hood.position.set(0, 1.62, 0.06);
+  avatar.add(hood);
+
+  const face = new THREE.Mesh(
+    new THREE.SphereGeometry(0.15, 24, 24),
+    new THREE.MeshStandardMaterial({ color: "#efc8b1", roughness: 0.58 })
+  );
+  face.position.set(0, 1.55, 0.13);
+  avatar.add(face);
+
+  const hair = new THREE.Mesh(
+    new THREE.SphereGeometry(0.16, 24, 24, 0, Math.PI * 2, 0, Math.PI * 0.58),
+    new THREE.MeshStandardMaterial({ color: "#111315", roughness: 0.95 })
+  );
+  hair.position.set(0, 1.64, 0.07);
+  avatar.add(hair);
+
+  const backpack = new THREE.Mesh(
+    new THREE.BoxGeometry(0.2, 0.36, 0.14),
+    new THREE.MeshStandardMaterial({ color: "#101828", roughness: 0.7 })
+  );
+  backpack.position.set(0, 1.02, -0.2);
+  avatar.add(backpack);
+
+  const legGeometry = new THREE.CapsuleGeometry(0.06, 0.45, 8, 14);
+  const legMaterial = new THREE.MeshStandardMaterial({ color: "#111827" });
+  const leftLeg = new THREE.Mesh(legGeometry, legMaterial);
+  leftLeg.position.set(-0.09, 0.3, 0);
+  const rightLeg = leftLeg.clone();
+  rightLeg.position.x = 0.09;
+  avatar.add(leftLeg, rightLeg);
+
+  avatar.position.copy(player.position);
+  world.add(avatar);
+  player.body = avatar;
 }
-updateCamera();
+buildPlayer();
 
 canvas.addEventListener("pointerdown", (event) => {
-  orbit.isDragging = true;
-  orbit.previousX = event.clientX;
-  orbit.previousY = event.clientY;
+  controls.isDragging = true;
+  controls.previousX = event.clientX;
+  controls.previousY = event.clientY;
 });
 window.addEventListener("pointerup", () => {
-  orbit.isDragging = false;
+  controls.isDragging = false;
 });
 window.addEventListener("pointermove", (event) => {
-  if (!orbit.isDragging) return;
-  const dx = event.clientX - orbit.previousX;
-  const dy = event.clientY - orbit.previousY;
-  orbit.previousX = event.clientX;
-  orbit.previousY = event.clientY;
+  if (!controls.isDragging) return;
+  const dx = event.clientX - controls.previousX;
+  const dy = event.clientY - controls.previousY;
+  controls.previousX = event.clientX;
+  controls.previousY = event.clientY;
 
-  orbit.velocityX = -dx * 0.0013;
-  orbit.velocityY = -dy * 0.001;
-  orbit.yaw += orbit.velocityX;
-  orbit.pitch = THREE.MathUtils.clamp(orbit.pitch + orbit.velocityY, -0.5, 0.9);
-  updateCamera();
+  controls.yaw -= dx * 0.0023;
+  controls.pitch = THREE.MathUtils.clamp(controls.pitch - dy * 0.0016, 0.12, 0.9);
 });
+
+function bindMoveButton(button, direction) {
+  button.addEventListener("click", () => {
+    controls.teleportTargetX = player.position.x + direction * 3.1;
+    controls.moveDirection = direction;
+  });
+}
+bindMoveButton(ui.moveLeft, -1);
+bindMoveButton(ui.moveRight, 1);
 
 const categoryColors = {
   프로젝트: "#38bdf8",
@@ -204,7 +280,14 @@ function normalizeRecord(raw) {
       : String(raw.tags || "")
           .split(",")
           .map((tag) => tag.trim())
-          .filter(Boolean)
+          .filter(Boolean),
+    image: raw.image || `https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=900&q=80`,
+    history: Array.isArray(raw.history)
+      ? raw.history
+      : [
+          `${raw.date || new Date().toISOString().slice(0, 10)} · ${raw.summary || "설명 없음"}`,
+          `성과: ${raw.impact || "성과 미기입"}`
+        ]
   };
 }
 
@@ -273,37 +356,43 @@ function renderBooks() {
 
     const book = new THREE.Mesh(
       new THREE.BoxGeometry(0.3, 0.95, 0.25),
-      new THREE.MeshStandardMaterial({
+      new THREE.MeshPhysicalMaterial({
         color: categoryColors[record.category] || categoryColors.default,
         emissive: "#0b1120",
-        roughness: 0.52
+        roughness: 0.42,
+        metalness: 0.08,
+        clearcoat: 0.2
       })
     );
     book.position.set(-1.25 + column * 0.33, -0.95 + level * 1.12, 0.3);
     book.userData.recordId = record.id;
     shelf.add(book);
 
-    state.books.push({ mesh: book, baseY: book.position.y, recordId: record.id });
+    const spine = new THREE.Mesh(
+      new THREE.BoxGeometry(0.05, 0.9, 0.255),
+      new THREE.MeshStandardMaterial({ color: "#f8fafc", roughness: 0.35 })
+    );
+    spine.position.x = 0.13;
+    book.add(spine);
+
+    const worldPosition = new THREE.Vector3();
+    book.getWorldPosition(worldPosition);
+    state.books.push({ mesh: book, baseY: book.position.y, recordId: record.id, worldPosition });
   });
 }
 
 function renderRecords() {
   ui.records.innerHTML = "";
   state.filteredRecords.forEach((record) => {
-    const li = document.createElement("li");
-    li.className = `record ${state.selectedRecordId === record.id ? "active" : ""}`;
-    li.dataset.id = record.id;
-    li.innerHTML = `
-      <h3>${record.title}</h3>
-      <p>${record.summary}</p>
-      <p class="meta">${record.category} · ${record.date} · ${record.impact}</p>
-      <div class="tags">${record.tags.map((tag) => `<span>${tag}</span>`).join("")}</div>
-      <div class="actions ${state.role === "librarian" ? "" : "hidden"}">
-        <button class="action-btn" data-action="edit" data-id="${record.id}">수정</button>
-        <button class="action-btn" data-action="delete" data-id="${record.id}">삭제</button>
-      </div>
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `record-btn ${state.selectedRecordId === record.id ? "active" : ""}`;
+    button.dataset.id = record.id;
+    button.innerHTML = `
+      <strong>${record.title}</strong>
+      <small>${record.category} · ${record.date}</small>
     `;
-    ui.records.append(li);
+    ui.records.append(button);
   });
 }
 
@@ -316,32 +405,47 @@ function refresh() {
 
 function setSelectedRecord(id) {
   state.selectedRecordId = id;
-  document.querySelectorAll(".record").forEach((node) => {
+  document.querySelectorAll(".record-btn").forEach((node) => {
     node.classList.toggle("active", node.dataset.id === id);
   });
 }
 
+function openHistoryBook(recordId) {
+  const target = state.records.find((record) => record.id === recordId);
+  if (!target) return;
+  state.activeHistoryId = target.id;
+  setSelectedRecord(target.id);
+  ui.historyTitle.textContent = target.title;
+  ui.historySummary.textContent = target.summary;
+  ui.historyImage.src = target.image;
+  ui.historyTimeline.innerHTML = "";
+  target.history.forEach((line) => {
+    const li = document.createElement("li");
+    li.textContent = line;
+    ui.historyTimeline.append(li);
+  });
+  ui.historyBook.classList.remove("hidden");
+}
+
+function closeHistoryBook() {
+  state.activeHistoryId = null;
+  ui.historyBook.classList.add("hidden");
+}
+
+ui.historyClose.addEventListener("click", closeHistoryBook);
+
 ui.records.addEventListener("click", (event) => {
-  const button = event.target;
-  if (!(button instanceof HTMLButtonElement)) return;
-  if (state.role !== "librarian") return;
-
-  const { action, id } = button.dataset;
-  if (!id) return;
-  if (action === "delete") {
-    state.records = state.records.filter((record) => record.id !== id);
-    saveLocal();
-    refresh();
+  const button = event.target.closest(".record-btn");
+  if (!(button instanceof HTMLElement)) return;
+  const targetBook = state.books.find((book) => book.recordId === button.dataset.id);
+  if (targetBook) {
+    targetBook.mesh.getWorldPosition(targetBook.worldPosition);
+    player.position.x = targetBook.worldPosition.x;
+    player.position.z = 2.5;
+    player.body.position.copy(player.position);
+    controls.teleportTargetX = null;
   }
-  if (action === "edit") {
-    openEditor(state.records.find((record) => record.id === id));
-  }
-});
-
-ui.records.addEventListener("pointerdown", (event) => {
-  const card = event.target.closest(".record");
-  if (!(card instanceof HTMLElement)) return;
-  setSelectedRecord(card.dataset.id);
+  openHistoryBook(button.dataset.id);
 });
 
 function openEditor(record) {
@@ -420,7 +524,7 @@ canvas.addEventListener("click", (event) => {
   if (!intersects.length) return;
 
   const recordId = intersects[0].object.userData.recordId;
-  setSelectedRecord(recordId);
+  openHistoryBook(recordId);
   document.querySelector(`[data-id="${recordId}"]`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
 });
 
@@ -439,21 +543,72 @@ async function loadPortfolio() {
 }
 
 const clock = new THREE.Clock();
+const cameraOffset = new THREE.Vector3();
+const lookAtTarget = new THREE.Vector3();
+
+function updatePlayer(delta, elapsed) {
+  let movement = controls.moveDirection * player.speed;
+  if (typeof controls.teleportTargetX === "number") {
+    const distance = controls.teleportTargetX - player.position.x;
+    const step = THREE.MathUtils.clamp(distance, -8 * delta, 8 * delta);
+    player.position.x += step;
+    movement = step / Math.max(delta, 0.0001);
+    if (Math.abs(distance) < 0.03) {
+      player.position.x = controls.teleportTargetX;
+      controls.teleportTargetX = null;
+      controls.moveDirection = 0;
+      movement = 0;
+    }
+  } else {
+    controls.moveDirection = 0;
+  }
+
+  player.velocity.set(movement, 0, 0);
+  player.position.z = 2.5;
+  if (movement !== 0) player.body.rotation.y = movement > 0 ? Math.PI / 2 : -Math.PI / 2;
+
+  player.body.position.copy(player.position);
+  const stride = Math.sin(elapsed * (Math.abs(movement) > 0 ? 12 : 2)) * 0.04;
+  player.body.children[5].position.z = stride;
+  player.body.children[6].position.z = -stride;
+}
+
+function updateCamera() {
+  const horizontalDistance = 2.9;
+  const verticalDistance = 1.9 + controls.pitch * 0.9;
+  cameraOffset.set(Math.sin(controls.yaw + Math.PI) * horizontalDistance, verticalDistance, Math.cos(controls.yaw + Math.PI) * horizontalDistance);
+  camera.position.copy(player.position).add(cameraOffset);
+  lookAtTarget.copy(player.position).add(new THREE.Vector3(0, 1.25, 0));
+  camera.lookAt(lookAtTarget);
+}
+
+function checkNearbyRecords() {
+  const near = state.books.find((book) => {
+    book.mesh.getWorldPosition(book.worldPosition);
+    return book.worldPosition.distanceTo(player.position) < 1.2;
+  });
+  if (near && state.activeHistoryId !== near.recordId) {
+    openHistoryBook(near.recordId);
+  }
+}
+
+function wrapShelvesAroundPlayer() {
+  shelfGroups.forEach((shelf) => {
+    const diff = shelf.position.x - player.position.x;
+    if (diff > shelfWrapDistance) shelf.position.x -= shelfWrapDistance * 2;
+    if (diff < -shelfWrapDistance) shelf.position.x += shelfWrapDistance * 2;
+  });
+}
+
 function animate() {
   requestAnimationFrame(animate);
 
   const delta = clock.getDelta();
   const elapsed = clock.elapsedTime;
-
-  if (!orbit.isDragging) {
-    orbit.velocityX *= 0.92;
-    orbit.velocityY *= 0.9;
-    if (Math.abs(orbit.velocityX) > 0.00001) {
-      orbit.yaw += orbit.velocityX;
-      orbit.pitch = THREE.MathUtils.clamp(orbit.pitch + orbit.velocityY, -0.5, 0.9);
-      updateCamera();
-    }
-  }
+  updatePlayer(delta, elapsed);
+  wrapShelvesAroundPlayer();
+  updateCamera();
+  checkNearbyRecords();
 
   const particleCloud = world.getObjectByName("particles");
   if (particleCloud) particleCloud.rotation.y += delta * 0.03;
